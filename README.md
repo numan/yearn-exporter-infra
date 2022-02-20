@@ -1,5 +1,15 @@
 
-# Welcome to your CDK Python project!
+# Yearn Exporter Infrastructure
+
+This repository contains Infrastructure as Code (IaC) for a self-hosted version of
+Gnosis Safe on AWS.
+
+The infrastructure is defined using **[AWS Cloud Development Kit (AWS CDK)](https://aws.amazon.com/cdk/)**.
+AWS CDK is an open source software development framework to define your cloud application resources using
+familiar programming languages.
+
+These definitions can then be synthesized to AWS CloudFormation Templates which can be deployed AWS.
+## Prerequisites 
 
 This is a blank project for Python development with CDK.
 
