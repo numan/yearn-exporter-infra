@@ -1,113 +1,69 @@
-import json
-
-from aws_cdk import Duration, RemovalPolicy, Stack
+from tokenize import Number
+from typing import Mapping
+from aws_cdk import RemovalPolicy, Stack
 from aws_cdk import aws_applicationautoscaling as app_autoscaling
-from aws_cdk import aws_autoscaling as autoscaling
-from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
-from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as secretsmanager
+from aws_cdk import aws_efs as efs
 from constructs import Construct
-
 
 class YearnApyExporterInfraStack(Stack):
     def __init__(
-        self, scope: Construct, construct_id: str, vpc: ec2.IVpc, **kwargs
+        self,
+        scope: Construct,
+        construct_id: str,
+        vpc: ec2.IVpc,
+        log_group: logs.LogGroup,
+        repository: ecr.IRepository,
+        bucket: s3.IBucket,
+        container_secrets: Mapping[str, secretsmanager.Secret],
+        schedule: app_autoscaling.Schedule,
+        explorer_url:str,
+        network: str,
+        cpu: Number = 4096,
+        memory: Number = 10240,
+        **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_group = logs.LogGroup(
-            self,
-            "ApyLogGroup",
-            retention=logs.RetentionDays.ONE_MONTH,
-            removal_policy=RemovalPolicy.DESTROY,
-        )
-
-        secrets = secretsmanager.Secret(
-            self,
-            "ApySecrets",
-            generate_secret_string=secretsmanager.SecretStringGenerator(
-                secret_string_template=json.dumps(
-                    {"WEB3_PROVIDER": "", "ETHERSCAN_TOKEN": ""}
-                ),
-                generate_string_key="_",  # Needed just to we can provision secrets manager with a template. Not used.
-            ),
-        )
-
-        repository = ecr.Repository(
-            self,
-            "ApyExporterRepository",
-            removal_policy=RemovalPolicy.DESTROY,
-            lifecycle_rules=[
-                ecr.LifecycleRule(
-                    tag_status=ecr.TagStatus.UNTAGGED,
-                    max_image_age=Duration.days(2),
-                ),
-                ecr.LifecycleRule(
-                    max_image_count=20,
-                ),
-            ],
-            repository_name="yearn-exporter",
-        )
-
         cluster = ecs.Cluster(self, "ApyExporterCluster", vpc=vpc)
 
-        asg_provider = ecs.AsgCapacityProvider(
-            self,
-            "ApyExporterAsgCapacityProvider",
-            auto_scaling_group=autoscaling.AutoScalingGroup(
-                self,
-                "ApyExporterAsg",
-                instance_type=ec2.InstanceType("m5a.large"),
-                vpc=vpc,
-                machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
-            ),
-        )
-        asg_provider.auto_scaling_group.role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name(
-                "AmazonSSMManagedInstanceCore"
-            )
-        )
 
-        cluster.add_asg_capacity_provider(asg_provider)
+        sg = ec2.SecurityGroup(
+            self, "EFSSecurityGroup", vpc=vpc, allow_all_outbound=True
+        )
+        sg.connections.allow_from(sg, ec2.Port.all_traffic())
 
-        bucket = s3.Bucket(
+        apy_cache_fs = efs.FileSystem(
             self,
-            "ApyExporterBucket",
+            "ApyExporterCacheFileSystem",
+            vpc=vpc,
+            lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
+            performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
+            security_group=sg,
             removal_policy=RemovalPolicy.DESTROY,
-            bucket_name="api.yearn.finance",
-            cors=[
-                s3.CorsRule(
-                    allowed_methods=[s3.HttpMethods.GET],
-                    allowed_headers=["*"],
-                    allowed_origins=["*"],
+        )
+
+        task_definition = ecs.FargateTaskDefinition(
+            self,
+            "ApyExporterTaskDefinition",
+            cpu=cpu,
+            memory_limit_mib=memory,
+            volumes=[
+                ecs.Volume(
+                    name="brownie",
+                    efs_volume_configuration=ecs.EfsVolumeConfiguration(
+                        file_system_id=apy_cache_fs.file_system_id,
+                    ),
                 )
             ],
         )
 
-        cloudfront_distribution = cloudfront.CloudFrontWebDistribution(
-            self,
-            "ApyExporterDistribution",
-            origin_configs=[
-                cloudfront.SourceConfiguration(
-                    s3_origin_source=cloudfront.S3OriginConfig(s3_bucket_source=bucket),
-                    behaviors=[cloudfront.Behavior(is_default_behavior=True)],
-                ),
-            ],
-        )
-
-        task_definition = ecs.Ec2TaskDefinition(
-            self,
-            "ApyExporterTaskDefinition",
-            volumes=[
-                ecs.Volume(name="brownie", host=ecs.Host(source_path="/data/brownie"))
-            ],
-        )
 
         container = task_definition.add_container(
             "s3-apy",
@@ -121,18 +77,14 @@ class YearnApyExporterInfraStack(Stack):
                 stream_prefix="apy",
                 mode=ecs.AwsLogDriverMode.NON_BLOCKING,
             ),
-            memory_reservation_mib=512,
+            cpu=cpu,
+            memory_reservation_mib=memory,
             environment={
                 "AWS_BUCKET": bucket.bucket_name,
+                "EXPLORER": explorer_url,
+                "NETWORK": network,
             },
-            secrets={
-                "WEB3_PROVIDER": ecs.Secret.from_secrets_manager(
-                    secrets, "WEB3_PROVIDER"
-                ),
-                "ETHERSCAN_TOKEN": ecs.Secret.from_secrets_manager(
-                    secrets, "ETHERSCAN_TOKEN"
-                ),
-            },
+            secrets=container_secrets,
         )
 
         container.add_mount_points(
@@ -143,22 +95,21 @@ class YearnApyExporterInfraStack(Stack):
             )
         )
 
-        scheduled_task = ecs_patterns.ScheduledEc2Task(
+        scheduled_task = ecs_patterns.ScheduledFargateTask(
             self,
             "ApyExporterTask",
             cluster=cluster,
-            scheduled_ec2_task_definition_options=ecs_patterns.ScheduledEc2TaskDefinitionOptions(
+            scheduled_fargate_task_definition_options=ecs_patterns.ScheduledFargateTaskDefinitionOptions(
                 task_definition=task_definition,
             ),
-            schedule=app_autoscaling.Schedule.cron(
-                minute="0/60",
-            ),
+            schedule=schedule,
+
         )
 
-        iam_user = iam.User(
-            self, "ApyExporterUser", user_name="apy-exporter-service-user"
-        )
+
+
+        for task_sg in scheduled_task.task.security_groups:
+            task_sg.connections.allow_to(apy_cache_fs.connections, ec2.Port.all_traffic())
 
         bucket.grant_read_write(scheduled_task.task_definition.task_role)
-        bucket.grant_read(iam_user)
-        repository.grant_pull_push(iam_user)
+
