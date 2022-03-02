@@ -39,6 +39,18 @@ class YearnApyExporterInfraStack(Stack):
                 ecs.Volume(
                     name="brownie",
                     host=ecs.Host(source_path=f"/data/{network.lower()}"),
+                ),
+                ecs.Volume(
+                    name="solc",
+                    host=ecs.Host(source_path=f"/solc/{network.lower()}"),
+                ),
+                ecs.Volume(
+                    name="vyper",
+                    host=ecs.Host(source_path=f"/vyper_compilers/{network.lower()}"),
+                ),
+                ecs.Volume(
+                    name="cache",
+                    host=ecs.Host(source_path=f"/cache/{network.lower()}"),
                 )
             ],
         )
@@ -68,6 +80,30 @@ class YearnApyExporterInfraStack(Stack):
             ecs.MountPoint(
                 source_volume="brownie",
                 container_path="/root/.brownie",
+                read_only=False,
+            )
+        )
+
+        container.add_mount_points(
+            ecs.MountPoint(
+                source_volume="solc",
+                container_path="/root/.solcx",
+                read_only=False,
+            )
+        )
+
+        container.add_mount_points(
+            ecs.MountPoint(
+                source_volume="vyper",
+                container_path="/root/.vvm",
+                read_only=False,
+            )
+        )
+
+        container.add_mount_points(
+            ecs.MountPoint(
+                source_volume="cache",
+                container_path="/app/yearn-exporter/cache",
                 read_only=False,
             )
         )

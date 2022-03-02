@@ -48,6 +48,8 @@ class YearnExporterInfraApp(cdk.Stack):
                         "MAINNET_ETHERSCAN_TOKEN": "",
                         "FANTOM_WEB3_PROVIDER": "",
                         "FTMSCAN_TOKEN": "",
+                        "ARBITRUM_WEB3_PROVIDER": "",
+                        "ARBISCAN_TOKEN": "",
                         "GRAFANA_URL": "",
                         "GRAFANA_API_KEY": "",
                     }
@@ -149,8 +151,7 @@ class YearnExporterInfraApp(cdk.Stack):
             },
             explorer_url="https://api.etherscan.io/api",
             schedule=app_autoscaling.Schedule.cron(
-                hour="7",
-                minute="0",
+                minute="0,20,40",
             ),
             **kwargs
         )
@@ -177,12 +178,38 @@ class YearnExporterInfraApp(cdk.Stack):
             },
             explorer_url="https://api.ftmscan.com/api",
             schedule=app_autoscaling.Schedule.cron(
-                hour="7",
-                minute="0",
+                minute="5,25,45",
             ),
             **kwargs
         )
 
+
+        YearnApyExporterInfraStack(
+            self,
+            "YearnArbitrumApyExporterInfraStack",
+            log_group=apy_log_group,
+            repository=repository,
+            bucket=bucket,
+            network="arbitrum-main",
+            cluster=cluster,
+            container_secrets={
+                "WEB3_PROVIDER": ecs.Secret.from_secrets_manager(
+                    secrets, "ARBITRUM_WEB3_PROVIDER"
+                ),
+                "ARBISCAN_TOKEN": ecs.Secret.from_secrets_manager(
+                    secrets, "ARBISCAN_TOKEN"
+                ),
+                "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
+                "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
+                    secrets, "GRAFANA_API_KEY"
+                ),
+            },
+            explorer_url="https://api.arbiscan.io/api",
+            schedule=app_autoscaling.Schedule.cron(
+                minute="7,27,47",
+            ),
+            **kwargs
+        )
 
 app = cdk.App()
 
