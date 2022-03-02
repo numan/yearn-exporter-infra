@@ -95,7 +95,14 @@ class YearnExporterInfraApp(cdk.Stack):
             origin_configs=[
                 cloudfront.SourceConfiguration(
                     s3_origin_source=cloudfront.S3OriginConfig(s3_bucket_source=bucket),
-                    behaviors=[cloudfront.Behavior(is_default_behavior=True)],
+                    behaviors=[
+                        cloudfront.Behavior(
+                            is_default_behavior=True,
+                            default_ttl=Duration.minutes(0),
+                            max_ttl=Duration.minutes(0),
+                            min_ttl=Duration.minutes(0),
+                        )
+                    ],
                 ),
             ],
         )
@@ -115,7 +122,7 @@ class YearnExporterInfraApp(cdk.Stack):
             auto_scaling_group=autoscaling.AutoScalingGroup(
                 self,
                 "ApyExporterAsg",
-                instance_type=ec2.InstanceType("m6a.4xlarge"),
+                instance_type=ec2.InstanceType("m6a.2xlarge"),
                 vpc=vpc,
                 machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             ),
@@ -183,7 +190,6 @@ class YearnExporterInfraApp(cdk.Stack):
             **kwargs
         )
 
-
         YearnApyExporterInfraStack(
             self,
             "YearnArbitrumApyExporterInfraStack",
@@ -210,6 +216,7 @@ class YearnExporterInfraApp(cdk.Stack):
             ),
             **kwargs
         )
+
 
 app = cdk.App()
 
