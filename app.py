@@ -139,7 +139,7 @@ class YearnExporterInfraApp(cdk.Stack):
 
         YearnApyExporterInfraStack(
             self,
-            "YearnMainnetApyExporterInfraStack",
+            "YearnMainnetEndorsedApyExporterInfraStack",
             log_group=apy_log_group,
             repository=repository,
             bucket=bucket,
@@ -164,12 +164,44 @@ class YearnExporterInfraApp(cdk.Stack):
             schedule=app_autoscaling.Schedule.cron(
                 minute="0,20,40",
             ),
+            export_endorsed=True,
             **kwargs
         )
 
         YearnApyExporterInfraStack(
             self,
-            "YearnFantomApyExporterInfraStack",
+            "YearnMainnetExperimentalApyExporterInfraStack",
+            log_group=apy_log_group,
+            repository=repository,
+            bucket=bucket,
+            network="mainnet",
+            cluster=cluster,
+            container_secrets={
+                "WEB3_PROVIDER": ecs.Secret.from_secrets_manager(
+                    secrets, "MAINNET_WEB3_PROVIDER"
+                ),
+                "ETHERSCAN_TOKEN": ecs.Secret.from_secrets_manager(
+                    secrets, "MAINNET_ETHERSCAN_TOKEN"
+                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
+                ),
+                "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
+                "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
+                    secrets, "GRAFANA_API_KEY"
+                ),
+            },
+            explorer_url="https://api.etherscan.io/api",
+            schedule=app_autoscaling.Schedule.cron(
+                minute="10,30,50",
+            ),
+            export_endorsed=False,
+            **kwargs
+        )
+
+        YearnApyExporterInfraStack(
+            self,
+            "YearnFantomEndorsedApyExporterInfraStack",
             log_group=apy_log_group,
             repository=repository,
             bucket=bucket,
@@ -194,12 +226,45 @@ class YearnExporterInfraApp(cdk.Stack):
             schedule=app_autoscaling.Schedule.cron(
                 minute="5,25,45",
             ),
+            export_endorsed=True,
             **kwargs
         )
 
         YearnApyExporterInfraStack(
             self,
-            "YearnArbitrumApyExporterInfraStack",
+            "YearnFantomExperimentalApyExporterInfraStack",
+            log_group=apy_log_group,
+            repository=repository,
+            bucket=bucket,
+            network="ftm-main",
+            cluster=cluster,
+            container_secrets={
+                "WEB3_PROVIDER": ecs.Secret.from_secrets_manager(
+                    secrets, "FANTOM_WEB3_PROVIDER"
+                ),
+                "FTMSCAN_TOKEN": ecs.Secret.from_secrets_manager(
+                    secrets, "FTMSCAN_TOKEN"
+                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
+                ),
+                "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
+                "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
+                    secrets, "GRAFANA_API_KEY"
+                ),
+            },
+            explorer_url="https://api.ftmscan.com/api",
+            schedule=app_autoscaling.Schedule.cron(
+                minute="7,27,47",
+            ),
+            export_endorsed=False,
+            **kwargs
+        )
+
+
+        YearnApyExporterInfraStack(
+            self,
+            "YearnArbitrumEndorsedApyExporterInfraStack",
             log_group=apy_log_group,
             repository=repository,
             bucket=bucket,
@@ -222,8 +287,40 @@ class YearnExporterInfraApp(cdk.Stack):
             },
             explorer_url="https://api.arbiscan.io/api",
             schedule=app_autoscaling.Schedule.cron(
-                minute="7,27,47",
+                minute="12,32,52",
             ),
+            export_endorsed=True,
+            **kwargs
+        )
+
+        YearnApyExporterInfraStack(
+            self,
+            "YearnArbitrumExperimentalApyExporterInfraStack",
+            log_group=apy_log_group,
+            repository=repository,
+            bucket=bucket,
+            network="arbitrum-main",
+            cluster=cluster,
+            container_secrets={
+                "WEB3_PROVIDER": ecs.Secret.from_secrets_manager(
+                    secrets, "ARBITRUM_WEB3_PROVIDER"
+                ),
+                "ARBISCAN_TOKEN": ecs.Secret.from_secrets_manager(
+                    secrets, "ARBISCAN_TOKEN"
+                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
+                ),
+                "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
+                "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
+                    secrets, "GRAFANA_API_KEY"
+                ),
+            },
+            explorer_url="https://api.arbiscan.io/api",
+            schedule=app_autoscaling.Schedule.cron(
+                minute="15,35,55",
+            ),
+            export_endorsed=False,
             **kwargs
         )
 

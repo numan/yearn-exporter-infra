@@ -1,13 +1,10 @@
-from tokenize import Number
-from typing import Mapping, Optional
+from typing import Mapping
 
-from aws_cdk import RemovalPolicy, Size, Stack
+from aws_cdk import Stack
 from aws_cdk import aws_applicationautoscaling as app_autoscaling
-from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
-from aws_cdk import aws_efs as efs
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as secretsmanager
@@ -27,9 +24,16 @@ class YearnApyExporterInfraStack(Stack):
         cluster: ecs.ICluster,
         explorer_url: str,
         network: str,
+        export_endorsed: bool = True,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        export_mode = None
+        if export_endorsed:
+            export_mode = "endorsed"
+        else:
+            export_mode = "experimental"
 
 
         task_definition = ecs.Ec2TaskDefinition(
@@ -64,7 +68,7 @@ class YearnApyExporterInfraStack(Stack):
             command=["s3"],
             logging=ecs.AwsLogDriver(
                 log_group=log_group,
-                stream_prefix="apy",
+                stream_prefix=f"apy/{network.lower()}/{export_mode}",
                 mode=ecs.AwsLogDriverMode.NON_BLOCKING,
             ),
             memory_reservation_mib=1024,
@@ -72,6 +76,7 @@ class YearnApyExporterInfraStack(Stack):
                 "AWS_BUCKET": bucket.bucket_name,
                 "EXPLORER": explorer_url,
                 "NETWORK": network,
+                "EXPORT_MODE": export_mode,
                 "SENTRY_ENVIRONMENT": "aws-production",
             },
             secrets=container_secrets,
