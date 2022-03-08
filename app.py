@@ -50,6 +50,7 @@ class YearnExporterInfraApp(cdk.Stack):
                         "FTMSCAN_TOKEN": "",
                         "ARBITRUM_WEB3_PROVIDER": "",
                         "ARBISCAN_TOKEN": "",
+                        "SENTRY_DSN": "",
                         "GRAFANA_URL": "",
                         "GRAFANA_API_KEY": "",
                     }
@@ -151,6 +152,9 @@ class YearnExporterInfraApp(cdk.Stack):
                 "ETHERSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "MAINNET_ETHERSCAN_TOKEN"
                 ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
+                ),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -178,6 +182,9 @@ class YearnExporterInfraApp(cdk.Stack):
                 "FTMSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "FTMSCAN_TOKEN"
                 ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
+                ),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -204,6 +211,9 @@ class YearnExporterInfraApp(cdk.Stack):
                 ),
                 "ARBISCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "ARBISCAN_TOKEN"
+                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
+                    secrets, "SENTRY_DSN"
                 ),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(

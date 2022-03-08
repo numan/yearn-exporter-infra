@@ -72,6 +72,7 @@ class YearnApyExporterInfraStack(Stack):
                 "AWS_BUCKET": bucket.bucket_name,
                 "EXPLORER": explorer_url,
                 "NETWORK": network,
+                "SENTRY_ENVIRONMENT": "aws-production",
             },
             secrets=container_secrets,
         )
