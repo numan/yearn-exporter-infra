@@ -6,19 +6,21 @@ import aws_cdk as cdk
 from aws_cdk import Duration, RemovalPolicy, Size
 from aws_cdk import aws_applicationautoscaling as app_autoscaling
 from aws_cdk import aws_autoscaling as autoscaling
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_route53 as route53
+from aws_cdk import aws_route53_targets as targets
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as secretsmanager
 from constructs import Construct
 
-from yearn_apy_exporter_infra.yearn_apy_exporter_infra_stack import (
-    YearnApyExporterInfraStack,
-)
+from yearn_apy_exporter_infra.yearn_apy_exporter_infra_stack import \
+    YearnApyExporterInfraStack
 
 
 class YearnExporterInfraApp(cdk.Stack):
@@ -29,6 +31,21 @@ class YearnExporterInfraApp(cdk.Stack):
             self,
             "VPC",
             max_azs=1,
+        )
+        domain_name = "staging.apy.exporter.yearn.finance"
+
+        hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
+            self,
+            "HostedZone",
+            hosted_zone_id=os.getenv("HOSTED_ZONE_ID"),
+            zone_name="exporter.yearn.finance",
+        )
+
+        cert = acm.DnsValidatedCertificate(
+            self,
+            "ApyExporter",
+            hosted_zone=hosted_zone,
+            domain_name=domain_name,
         )
 
         apy_log_group = logs.LogGroup(
@@ -90,9 +107,12 @@ class YearnExporterInfraApp(cdk.Stack):
             public_read_access=True,
         )
 
-        cloudfront.CloudFrontWebDistribution(
+        cloudfront_distribution = cloudfront.CloudFrontWebDistribution(
             self,
             "ApyExporterDistribution",
+            viewer_certificate=cloudfront.ViewerCertificate.from_acm_certificate(
+                certificate=cert, aliases=[domain_name]
+            ),
             origin_configs=[
                 cloudfront.SourceConfiguration(
                     s3_origin_source=cloudfront.S3OriginConfig(s3_bucket_source=bucket),
@@ -106,6 +126,26 @@ class YearnExporterInfraApp(cdk.Stack):
                     ],
                 ),
             ],
+        )
+
+        route53.ARecord(
+            self,
+            "ApyExporterARecord",
+            zone=hosted_zone,
+            record_name=domain_name,
+            target=route53.RecordTarget.from_alias(
+                targets.CloudFrontTarget(cloudfront_distribution)
+            ),
+        )
+
+        route53.AaaaRecord(
+            self,
+            "ApyExporterAliasRecord",
+            zone=hosted_zone,
+            record_name=domain_name,
+            target=route53.RecordTarget.from_alias(
+                targets.CloudFrontTarget(cloudfront_distribution)
+            ),
         )
 
         iam_user = iam.User(
@@ -152,9 +192,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "ETHERSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "MAINNET_ETHERSCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -183,9 +221,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "ETHERSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "MAINNET_ETHERSCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -214,9 +250,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "FTMSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "FTMSCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -245,9 +279,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "FTMSCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "FTMSCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -260,7 +292,6 @@ class YearnExporterInfraApp(cdk.Stack):
             export_endorsed=False,
             **kwargs
         )
-
 
         YearnApyExporterInfraStack(
             self,
@@ -277,9 +308,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "ARBISCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "ARBISCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
@@ -308,9 +337,7 @@ class YearnExporterInfraApp(cdk.Stack):
                 "ARBISCAN_TOKEN": ecs.Secret.from_secrets_manager(
                     secrets, "ARBISCAN_TOKEN"
                 ),
-                "SENTRY_DSN": ecs.Secret.from_secrets_manager(
-                    secrets, "SENTRY_DSN"
-                ),
+                "SENTRY_DSN": ecs.Secret.from_secrets_manager(secrets, "SENTRY_DSN"),
                 "GRAFANA_URL": ecs.Secret.from_secrets_manager(secrets, "GRAFANA_URL"),
                 "GRAFANA_API_KEY": ecs.Secret.from_secrets_manager(
                     secrets, "GRAFANA_API_KEY"
