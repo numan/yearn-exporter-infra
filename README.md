@@ -78,11 +78,13 @@ The following diagram provides a high level overview of the infrastructure that 
 
 1. [GitHub Actions](https://github.com/yearn/yearn-exporter/actions) push container images to a container repository on AWS
 2. A [CloudWatch Event](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/WhatIsCloudWatchEvents.html) triggers on a pre-defined schedule
-3. The CloudWatch event launches a new Fargate container with the latest image from the container repository
-4. The Fargate container mounts a persistent Elastic Files System (EFS) drive to the container. The drive contains the cache for brownie contracts between runs.
+3. The CloudWatch event launches a new ECS EC2 task container with the latest image from the container repository
+4. The ECS EC2 task container mounts a persistent folder the EC2 instance which runs the task containers. The drive contains the cache for brownie contracts between runs.
 5. The output is stored in a S3 bucket and served through a cloudfront distribution
-6. The same system (CloudWatch Event, Fargate Container, and EFS drive) is setup for each network (mainnet, fantom mainnet, etc...)
+6. The same system is setup for each network (mainnet, fantom mainnet, etc...), and run individually for endorsed and experimental strategies.
 
 ### Deploying
 
-Deploy command: `cdk deploy --profile "yearn-exporter" --all --require-approval never`
+Deploy command: `HOSTED_ZONE_ID="Z1111111QQMXXXRRR" cdk deploy --profile "yearn-exporter" --all --require-approval never`
+
+- `HOSTED_ZONE_ID` - The hosted zone that hosts the domain for the Cloudfront Distribution
