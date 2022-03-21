@@ -19,8 +19,9 @@ from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as secretsmanager
 from constructs import Construct
 
-from yearn_apy_exporter_infra.yearn_apy_exporter_infra_stack import \
-    YearnApyExporterInfraStack
+from yearn_apy_exporter_infra.yearn_apy_exporter_infra_stack import (
+    YearnApyExporterInfraStack,
+)
 
 
 class YearnExporterInfraApp(cdk.Stack):
@@ -164,6 +165,12 @@ class YearnExporterInfraApp(cdk.Stack):
                 self,
                 "ApyExporterAsg",
                 instance_type=ec2.InstanceType("m6a.2xlarge"),
+                block_devices=[
+                    autoscaling.BlockDevice(
+                        device_name="/dev/xvda",
+                        volume=autoscaling.BlockDeviceVolume.ebs(100),
+                    )
+                ],
                 vpc=vpc,
                 machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
             ),
@@ -175,6 +182,41 @@ class YearnExporterInfraApp(cdk.Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name(
                 "AmazonSSMManagedInstanceCore"
             )
+        )
+
+        task_definition = ecs.Ec2TaskDefinition(
+            self, "NodeExporterMetricsTaskDefinition"
+        )
+
+        task_definition.add_container(
+            "NodeMetricsExporter",
+            container_name="node-exporter",
+            image=ecs.ContainerImage.from_asset("docker/grafana"),
+            memory_reservation_mib=512,
+            logging=ecs.AwsLogDriver(
+                stream_prefix="node-exporter",
+                log_group=apy_log_group,
+                mode=ecs.AwsLogDriverMode.NON_BLOCKING,
+            ),
+            secrets={
+                "REMOTE_WRITE": ecs.Secret.from_secrets_manager(
+                    secrets, "REMOTE_WRITE"
+                ),
+                "REMOTE_WRITE_USERNAME": ecs.Secret.from_secrets_manager(
+                    secrets, "REMOTE_WRITE_USERNAME"
+                ),
+                "REMOTE_WRITE_PASSWORD": ecs.Secret.from_secrets_manager(
+                    secrets, "REMOTE_WRITE_PASSWORD"
+                ),
+            },
+        )
+
+        ecs.Ec2Service(
+            self,
+            "NodeExporterMetricsService",
+            cluster=cluster,
+            task_definition=task_definition,
+            daemon=True,
         )
 
         YearnApyExporterInfraStack(
