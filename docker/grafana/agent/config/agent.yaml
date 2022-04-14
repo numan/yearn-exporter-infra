@@ -19,7 +19,9 @@ metrics:
 
 integrations:
   node_exporter:
+    instance: 'yearn-exporter-apy'
     enabled: true
     rootfs_path: /
     sysfs_path: /sys
     procfs_path: /proc
+    enable_collectors: ['processes']
