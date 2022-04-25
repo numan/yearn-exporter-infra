@@ -71,7 +71,7 @@ class YearnApyExporterInfraStack(Stack):
                 stream_prefix=f"apy/{network.lower()}/{export_mode}",
                 mode=ecs.AwsLogDriverMode.NON_BLOCKING,
             ),
-            memory_reservation_mib=1024,
+            memory_reservation_mib=4096,
             environment={
                 "AWS_BUCKET": bucket.bucket_name,
                 "EXPLORER": explorer_url,
